@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Set List Viewer</title>
+<style>
+  :root {
+    --bg: #14171a;
+    --panel: #1b1e24;
+    --panel-2: #21252c;
+    --border: #2b303a;
+    --border-soft: #262b33;
+    --text: #e7e9ee;
+    --text-muted: #8b93a1;
+    --text-faint: #5c6370;
+    --accent: #e3a13d;
+    --accent-ink: #1a1408;
+    --video: #e3a13d;
+    --output: #4fb6c9;
+    --cdl: #8f88d4;
+    --command: #de6a4c;
+    --mark-bg: rgba(227, 161, 61, 0.35);
+    --shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f3ee;
+      --panel: #ffffff;
+      --panel-2: #eeebe1;
+      --border: #ddd7c8;
+      --border-soft: #e6e1d5;
+      --text: #1e2024;
+      --text-muted: #676b73;
+      --text-faint: #9a9d9e;
+      --accent: #9c630a;
+      --accent-ink: #fff7ea;
+      --video: #9c630a;
+      --output: #0f7c92;
+      --cdl: #6a61c9;
+      --command: #b8492f;
+      --mark-bg: rgba(156, 99, 10, 0.18);
+      --shadow: 0 8px 24px rgba(30,20,0,0.08);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a; --panel: #1b1e24; --panel-2: #21252c; --border: #2b303a; --border-soft: #262b33;
+    --text: #e7e9ee; --text-muted: #8b93a1; --text-faint: #5c6370;
+    --accent: #e3a13d; --accent-ink: #1a1408;
+    --video: #e3a13d; --output: #4fb6c9; --cdl: #8f88d4; --command: #de6a4c;
+    --mark-bg: rgba(227, 161, 61, 0.35); --shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f3ee; --panel: #ffffff; --panel-2: #eeebe1; --border: #ddd7c8; --border-soft: #e6e1d5;
+    --text: #1e2024; --text-muted: #676b73; --text-faint: #9a9d9e;
+    --accent: #9c630a; --accent-ink: #fff7ea;
+    --video: #9c630a; --output: #0f7c92; --cdl: #6a61c9; --command: #b8492f;
+    --mark-bg: rgba(156, 99, 10, 0.18); --shadow: 0 8px 24px rgba(30,20,0,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Inter", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--mark-bg); }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 14px 20px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .title-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  h1 {
+    margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.01em;
+  }
+  h1 .accent-dot { color: var(--accent); }
+  .subtitle {
+    margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted);
+  }
+  .file-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: var(--panel-2);
+    color: var(--text); font-size: 0.78rem; font-weight: 600;
+    padding: 7px 12px; border-radius: 7px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color 0.12s ease, transform 0.06s ease;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  }
+  input[type="file"] { display: none; }
+
+  .search-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .search-box {
+    position: relative; flex: 1 1 240px; min-width: 200px;
+  }
+  .search-box input {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px 9px 32px; font-size: 0.88rem;
+  }
+  .search-box input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search-box svg {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: var(--text-faint); pointer-events: none;
+  }
+  .search-box .clear-btn {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-faint); cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 4px 6px; border-radius: 5px;
+  }
+  .search-box .clear-btn:hover { color: var(--text); background: var(--panel-2); }
+  .search-hint {
+    flex-basis: 100%; margin: -2px 0 0; font-size: 0.7rem; color: var(--text-faint);
+  }
+  .search-hint .mono { color: var(--text-muted); }
+
+  .export-menu { position: relative; }
+  .export-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: var(--shadow); padding: 4px; min-width: 160px; display: none;
+  }
+  .export-dropdown.open { display: block; }
+  .export-dropdown button {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    background: none; border: none; color: var(--text); font-size: 0.78rem;
+    padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  }
+  .export-dropdown button:hover { background: var(--panel-2); }
+  .export-dropdown .ext { margin-left: auto; color: var(--text-faint); font-size: 0.68rem; }
+
+  .print-only { display: none; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(12px);
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow);
+    font-size: 0.8rem; max-width: 380px; text-align: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { border-color: var(--command); color: var(--command); }
+
+  .type-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip-toggle {
+    appearance: none; border: 1px solid var(--border); background: transparent;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 6px 10px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text-muted);
+  }
+  .chip-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+  .chip-toggle[data-on="true"] { color: var(--text); border-color: var(--dotcolor); background: color-mix(in srgb, var(--dotcolor) 14%, transparent); }
+  .chip-toggle[data-on="true"] .dot { background: var(--dotcolor); opacity: 1; }
+  .chip-toggle[data-type="video"] { --dotcolor: var(--video); }
+  .chip-toggle[data-type="output"] { --dotcolor: var(--output); }
+  .chip-toggle[data-type="cdl"] { --dotcolor: var(--cdl); }
+  .chip-toggle[data-type="command"] { --dotcolor: var(--command); }
+
+  .stats-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 0.76rem; color: var(--text-muted);
+  }
+  .stats-row .count { color: var(--text); font-weight: 700; }
+
+  /* ---------- Content ---------- */
+  main { max-width: 1080px; margin: 0 auto; padding: 18px 20px 80px; }
+
+  .empty-state {
+    margin-top: 8vh; text-align: center; color: var(--text-muted);
+    border: 1.5px dashed var(--border); border-radius: 14px; padding: 48px 24px;
+  }
+  .empty-state.dragover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .empty-state h2 { font-size: 1rem; color: var(--text); margin: 10px 0 6px; }
+  .empty-state p { font-size: 0.82rem; margin: 4px 0; line-height: 1.5; }
+  .empty-state .glyph { font-size: 2rem; }
+  .empty-state textarea {
+    width: 100%; max-width: 520px; margin: 16px auto 0; display: block;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px; font-size: 0.78rem; height: 70px; resize: vertical;
+  }
+
+  .track {
+    margin-top: 22px;
+  }
+  .track:first-child { margin-top: 4px; }
+  .track-header {
+    position: sticky; top: 130px; z-index: 10;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+    padding: 9px 14px; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0.01em;
+    box-shadow: var(--shadow);
+  }
+  .track-header .track-badge {
+    font-size: 0.64rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent); margin-right: 8px;
+  }
+  .track-header .track-meta { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+
+  .section {
+    border: 1px solid var(--border-soft); border-radius: 10px; background: var(--panel);
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .section-header {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 8px 14px; background: var(--border-soft);
+    font-size: 0.8rem; font-weight: 600;
+  }
+  .section-header .tc { color: var(--text-muted); font-size: 0.72rem; font-weight: 500; }
+  .section-header .match-count {
+    margin-left: auto; font-size: 0.68rem; color: var(--accent); font-weight: 700;
+  }
+
+  .items { }
+  .item-row {
+    display: grid;
+    grid-template-columns: 76px 1fr 92px;
+    gap: 10px; align-items: start;
+    padding: 6px 14px; font-size: 0.78rem;
+    border-top: 1px solid var(--border-soft);
+  }
+  .item-row:first-child { border-top: none; }
+  .item-chip {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 5px; text-align: center; height: fit-content;
+    color: var(--accent-ink);
+  }
+  .item-chip.video { background: var(--video); }
+  .item-chip.output { background: var(--output); }
+  .item-chip.cdl { background: var(--cdl); }
+  .item-chip.command { background: var(--command); }
+  .item-body { min-width: 0; }
+  .item-name { color: var(--text); font-weight: 600; word-break: break-word; }
+  .item-detail { color: var(--text-muted); word-break: break-word; margin-top: 1px; }
+  .item-tc { color: var(--text-faint); text-align: right; font-size: 0.74rem; }
+
+  mark { background: var(--mark-bg); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+  .no-results { text-align: center; color: var(--text-muted); padding: 60px 20px; font-size: 0.85rem; }
+
+  a { color: var(--accent); }
+
+  @media print {
+    .topbar, .no-results, .empty-state, .export-dropdown { display: none !important; }
+    .print-only { display: block; margin-bottom: 16px; }
+    .print-only h1 { font-size: 1.1rem; margin: 0 0 4px; }
+    .print-only p { font-size: 0.78rem; margin: 2px 0; color: #333; }
+    html, body { background: #fff; color: #000; }
+    main { max-width: 100%; padding: 0; margin: 0; }
+    .track { margin-top: 14px; }
+    .track-header {
+      position: static; box-shadow: none; background: #eee; color: #000; border-color: #999;
+    }
+    .section { border-color: #ccc; background: #fff; }
+    .section-header { background: #f2f2f2; color: #000; }
+    .section-header .tc, .section-header .match-count { color: #333; }
+    .item-row { border-color: #ddd; break-inside: avoid; }
+    .item-chip { background: #fff !important; color: #000 !important; border: 1px solid #999; }
+    .item-name { color: #000; }
+    .item-detail, .item-tc { color: #444; }
+    mark { background: #ffe27a; color: #000; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="title-row">
+      <div>
+        <h1><span class="accent-dot">●</span> Set List Viewer</h1>
+        <p class="subtitle">Track → Section → asset hierarchy for D3 content exports</p>
+      </div>
+      <div class="file-controls">
+        <label class="btn primary" for="file-input">Load .txt file</label>
+        <input type="file" id="file-input" accept=".txt,.tsv,.csv,text/plain" />
+        <button class="btn" id="paste-btn" type="button">Paste text</button>
+        <div class="export-menu" id="export-menu" style="display:none;">
+          <button class="btn" id="export-toggle-btn" type="button">Export ▾</button>
+          <div class="export-dropdown" id="export-dropdown">
+            <button type="button" data-export="txt">Text<span class="ext">.txt</span></button>
+            <button type="button" data-export="csv" title="Downloads as .txt (comma-separated) — rename the extension to .csv to open directly in Excel/Sheets">CSV<span class="ext">.txt</span></button>
+            <button type="button" data-export="unique" title="One row per distinct Detail value (deduplicated), with a use count — downloads as .txt, rename to .csv for Excel/Sheets">Unique Assets<span class="ext">.txt</span></button>
+            <button type="button" data-export="pdf">PDF<span class="ext">print</span></button>
+          </div>
+        </div>
+        <button class="btn" id="reset-btn" type="button" style="display:none;">Load different file</button>
+      </div>
+    </div>
+    <div class="search-row" id="controls-row" style="display:none;">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="e.g. disclaimer AND NOT v05" autocomplete="off" />
+        <button class="clear-btn" id="clear-search" title="Clear">×</button>
+      </div>
+      <p class="search-hint">Combine terms with <span class="mono">AND</span> / <span class="mono">OR</span> / <span class="mono">NOT</span> (or a leading <span class="mono">-</span>), use <span class="mono">"exact phrases"</span>, and group with <span class="mono">( )</span> — e.g. <span class="mono">disclaimer AND NOT v05</span></p>
+      <div class="type-toggles" id="type-toggles">
+        <button class="chip-toggle" data-type="video" data-on="true"><span class="dot"></span>Video</button>
+        <button class="chip-toggle" data-type="output" data-on="true"><span class="dot"></span>Output</button>
+        <button class="chip-toggle" data-type="cdl" data-on="false"><span class="dot"></span>CDL</button>
+        <button class="chip-toggle" data-type="command" data-on="true"><span class="dot"></span>Command</button>
+      </div>
+    </div>
+    <div class="stats-row" id="stats-row" style="display:none;"></div>
+  </div>
+</div>
+
+<main>
+  <div class="print-only" id="print-header"></div>
+  <div class="empty-state" id="empty-state">
+    <div class="glyph">🎚️</div>
+    <h2>Load a content-table export</h2>
+    <p>Drop a tab-delimited <span class="mono">.txt</span> file here, use “Load .txt file” above, or paste the contents below.</p>
+    <p style="font-size:0.72rem; color: var(--text-faint);">Expected columns: <span class="mono">Track</span> / <span class="mono">Section</span> / <span class="mono">video, output, cdl, command</span> — tab-separated, one row per line. Nothing is uploaded; parsing happens locally in the page.</p>
+    <textarea id="paste-area" placeholder="Or paste tab-delimited rows here and press Enter…" style="display:none;"></textarea>
+  </div>
+  <div id="track-list"></div>
+  <div class="no-results" id="no-results" style="display:none;">No items match this filter.</div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var GROUP_TYPES = { Track: true, Section: true };
+  var ITEM_COLORS = { video: 'video', output: 'output', cdl: 'cdl', command: 'command' };
+
+  var fileInput = document.getElementById('file-input');
+  var pasteBtn = document.getElementById('paste-btn');
+  var pasteArea = document.getElementById('paste-area');
+  var resetBtn = document.getElementById('reset-btn');
+  var exportMenu = document.getElementById('export-menu');
+  var exportToggleBtn = document.getElementById('export-toggle-btn');
+  var exportDropdown = document.getElementById('export-dropdown');
+  var emptyState = document.getElementById('empty-state');
+  var trackList = document.getElementById('track-list');
+  var controlsRow = document.getElementById('controls-row');
+  var statsRow = document.getElementById('stats-row');
+  var searchInput = document.getElementById('search-input');
+  var clearSearchBtn = document.getElementById('clear-search');
+  var typeToggles = document.getElementById('type-toggles');
+  var noResults = document.getElementById('no-results');
+
+  var tracks = [];
+  var activeTypes = { video: true, output: true, cdl: false, command: true };
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function parseSetList(raw) {
+    var lines = raw.split(/\r\n|\r|\n/);
+    var result = [];
+    var currentTrack = null;
+    var currentSection = null;
+
+    function ensureTrack() {
+      if (!currentTrack) {
+        currentTrack = { name: 'Untitled Track', sections: [] };
+        result.push(currentTrack);
+      }
+      return currentTrack;
+    }
+    function ensureSection() {
+      ensureTrack();
+      if (!currentSection) {
+        currentSection = { name: 'Ungrouped', timestamp: '', items: [] };
+        currentTrack.sections.push(currentSection);
+      }
+      return currentSection;
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line || !line.trim()) continue;
+      var cols = line.split('\t');
+      var type = (cols[0] || '').trim();
+      if (!type) continue;
+
+      if (type === 'Track') {
+        currentTrack = { name: cols[1] || '(unnamed track)', sections: [] };
+        currentSection = null;
+        result.push(currentTrack);
+      } else if (type === 'Section') {
+        var sec = { name: cols[1] || '(unnamed section)', timestamp: cols[2] || '', items: [] };
+        ensureTrack().sections.push(sec);
+        currentSection = sec;
+      } else {
+        ensureSection().items.push({
+          type: type,
+          name: cols[1] || '',
+          timestamp: cols[2] || '',
+          detail: cols[3] || ''
+        });
+      }
+    }
+    return result;
+  }
+
+  function typeColorClass(type) {
+    return ITEM_COLORS[type] || 'command';
+  }
+
+  function highlight(text, terms) {
+    var safe = escapeHtml(text);
+    if (!terms || !terms.length) return safe;
+    try {
+      var pattern = terms
+        .map(function (t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+        .filter(Boolean)
+        .join('|');
+      if (!pattern) return safe;
+      var re = new RegExp('(' + pattern + ')', 'ig');
+      return safe.replace(re, '<mark>$1</mark>');
+    } catch (e) {
+      return safe;
+    }
+  }
+
+  // --- Boolean query support: AND / OR / NOT / -exclude / "phrases" / (grouping) ---
+  function tokenizeQuery(str) {
+    var tokens = [];
+    var re = /"([^"]*)"|\(|\)|[^\s()]+/g;
+    var m;
+    while ((m = re.exec(str)) !== null) {
+      if (m[1] !== undefined) {
+        tokens.push({ type: 'term', value: m[1].toLowerCase() });
+      } else if (m[0] === '(') {
+        tokens.push({ type: 'lparen' });
+      } else if (m[0] === ')') {
+        tokens.push({ type: 'rparen' });
+      } else {
+        var w = m[0];
+        var upper = w.toUpperCase();
+        if (upper === 'AND' || upper === 'OR' || upper === 'NOT' || upper === 'NAND') {
+          tokens.push({ type: 'op', value: upper });
+        } else if (w.charAt(0) === '-' && w.length > 1) {
+          tokens.push({ type: 'op', value: 'NOT' });
+          tokens.push({ type: 'term', value: w.slice(1).toLowerCase() });
+        } else {
+          tokens.push({ type: 'term', value: w.toLowerCase() });
+        }
+      }
+    }
+    return tokens;
+  }
+
+  function parseQuery(str) {
+    var tokens = tokenizeQuery(str);
+    if (!tokens.length) return null;
+    var pos = 0;
+    function peek() { return tokens[pos]; }
+    function advance() { return tokens[pos++]; }
+
+    function parseOr() {
+      var node = parseAnd();
+      while (peek() && peek().type === 'op' && peek().value === 'OR') {
+        advance();
+        node = { type: 'or', left: node, right: parseAnd() };
+      }
+      return node;
+    }
+    function parseAnd() {
+      var node = parseUnary();
+      while (true) {
+        var t = peek();
+        if (!t) break;
+        if (t.type === 'op' && (t.value === 'AND' || t.value === 'NAND')) {
+          var nand = t.value === 'NAND';
+          advance();
+          var right = parseUnary();
+          var andNode = { type: 'and', left: node, right: right };
+          node = nand ? { type: 'not', child: andNode } : andNode;
+        } else if (t.type === 'term' || t.type === 'lparen' || (t.type === 'op' && t.value === 'NOT')) {
+          node = { type: 'and', left: node, right: parseUnary() }; // implicit AND
+        } else {
+          break;
+        }
+      }
+      return node;
+    }
+    function parseUnary() {
+      var t = peek();
+      if (t && t.type === 'op' && t.value === 'NOT') {
+        advance();
+        return { type: 'not', child: parseUnary() };
+      }
+      return parsePrimary();
+    }
+    function parsePrimary() {
+      var t = peek();
+      if (!t) return { type: 'term', value: '' };
+      if (t.type === 'lparen') {
+        advance();
+        var node = parseOr();
+        if (peek() && peek().type === 'rparen') advance();
+        return node;
+      }
+      if (t.type === 'term') {
+        advance();
+        return { type: 'term', value: t.value };
+      }
+      advance(); // stray operator with no operand
+      return { type: 'term', value: '' };
+    }
+
+    return parseOr();
+  }
+
+  function evalQuery(node, text) {
+    switch (node.type) {
+      case 'term': return node.value === '' ? true : text.indexOf(node.value) !== -1;
+      case 'and': return evalQuery(node.left, text) && evalQuery(node.right, text);
+      case 'or': return evalQuery(node.left, text) || evalQuery(node.right, text);
+      case 'not': return !evalQuery(node.child, text);
+      default: return true;
+    }
+  }
+
+  function collectPositiveTerms(node, positive, out) {
+    if (!node) return;
+    switch (node.type) {
+      case 'term':
+        if (positive && node.value) out.push(node.value);
+        break;
+      case 'and':
+      case 'or':
+        collectPositiveTerms(node.left, positive, out);
+        collectPositiveTerms(node.right, positive, out);
+        break;
+      case 'not':
+        collectPositiveTerms(node.child, !positive, out);
+        break;
+    }
+  }
+
+  // Applies the current search query + type toggles to `tracks` and returns
+  // just the surviving Track/Section/item data. Shared by render() and the
+  // export functions so "what you see" and "what you export" never drift apart.
+  function computeVisible() {
+    var term = searchInput.value.trim();
+    var query = null;
+    var queryError = false;
+    if (term) {
+      try { query = parseQuery(term); } catch (e) { queryError = true; }
+    }
+    var positiveTerms = [];
+    if (query) {
+      collectPositiveTerms(query, true, positiveTerms);
+      positiveTerms = positiveTerms.filter(function (v, i) { return v && positiveTerms.indexOf(v) === i; });
+    }
+
+    var totalMatches = 0;
+    var sectionsWithMatches = 0;
+    var visibleTracks = [];
+
+    for (var t = 0; t < tracks.length; t++) {
+      var track = tracks[t];
+      var visibleSections = [];
+      var trackMatchCount = 0;
+
+      for (var s = 0; s < track.sections.length; s++) {
+        var section = track.sections[s];
+        var sectionNameLower = section.name.toLowerCase();
+
+        var visibleItems = [];
+        for (var it = 0; it < section.items.length; it++) {
+          var item = section.items[it];
+          if (!activeTypes[item.type]) continue;
+          if (query) {
+            var itemText = (sectionNameLower + ' ' + item.name + ' ' + item.detail).toLowerCase();
+            if (!evalQuery(query, itemText)) continue;
+            totalMatches++;
+          }
+          visibleItems.push(item);
+        }
+
+        var emptySectionNameMatch = query && section.items.length === 0 && evalQuery(query, sectionNameLower);
+        if (query && visibleItems.length === 0 && !emptySectionNameMatch) continue;
+        if (!query && visibleItems.length === 0) continue;
+        if (query) sectionsWithMatches++;
+
+        visibleSections.push({
+          name: section.name, timestamp: section.timestamp,
+          items: visibleItems, matchCount: visibleItems.length
+        });
+        trackMatchCount += visibleItems.length;
+      }
+
+      if (visibleSections.length === 0) continue;
+      visibleTracks.push({ name: track.name, sections: visibleSections, matchCount: trackMatchCount });
+    }
+
+    var totalSections = tracks.reduce(function (a, tr) { return a + tr.sections.length; }, 0);
+    var totalItems = tracks.reduce(function (a, tr) {
+      return a + tr.sections.reduce(function (b, s) { return b + s.items.length; }, 0);
+    }, 0);
+
+    return {
+      query: query, queryError: queryError, positiveTerms: positiveTerms, hasFilter: !!term,
+      tracks: visibleTracks, totalMatches: totalMatches, sectionsWithMatches: sectionsWithMatches,
+      totalSections: totalSections, totalItems: totalItems
+    };
+  }
+
+  function render() {
+    var data = computeVisible();
+    var query = data.query;
+    var html = data.tracks.map(function (track) {
+      var sectionsHtml = track.sections.map(function (section) {
+        var itemsHtml = section.items.map(function (item) {
+          return (
+            '<div class="item-row">' +
+              '<span class="item-chip ' + typeColorClass(item.type) + '">' + escapeHtml(item.type) + '</span>' +
+              '<div class="item-body">' +
+                '<div class="item-name">' + highlight(item.name, data.positiveTerms) + '</div>' +
+                (item.detail ? '<div class="item-detail mono">' + highlight(item.detail, data.positiveTerms) + '</div>' : '') +
+              '</div>' +
+              '<div class="item-tc mono">' + escapeHtml(item.timestamp) + '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+        return (
+          '<div class="section">' +
+            '<div class="section-header">' +
+              '<span>' + highlight(section.name, data.positiveTerms) + '</span>' +
+              (section.timestamp ? '<span class="tc mono">' + escapeHtml(section.timestamp) + '</span>' : '') +
+              (query ? '<span class="match-count">' + section.matchCount + ' match' + (section.matchCount === 1 ? '' : 'es') + '</span>' : '') +
+            '</div>' +
+            '<div class="items">' + itemsHtml + '</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      return (
+        '<div class="track">' +
+          '<div class="track-header">' +
+            '<span><span class="track-badge">Track</span>' + escapeHtml(track.name) + '</span>' +
+            (query ? '<span class="track-meta">' + track.matchCount + ' match' + (track.matchCount === 1 ? '' : 'es') + '</span>' : '') +
+          '</div>' +
+          sectionsHtml +
+        '</div>'
+      );
+    }).join('');
+
+    trackList.innerHTML = html;
+    noResults.style.display = html ? 'none' : 'block';
+    noResults.textContent = data.queryError ? 'Could not parse that query — check parentheses are balanced.' : 'No items match this filter.';
+
+    if (query) {
+      statsRow.innerHTML =
+        '<span><span class="count">' + data.totalMatches + '</span> matching item' + (data.totalMatches === 1 ? '' : 's') +
+        ' in <span class="count">' + data.sectionsWithMatches + '</span> section' + (data.sectionsWithMatches === 1 ? '' : 's') + '</span>' +
+        '<span>' + tracks.length + ' tracks · ' + data.totalSections + ' sections · ' + data.totalItems.toLocaleString() + ' items loaded</span>';
+    } else {
+      statsRow.innerHTML =
+        '<span><span class="count">' + tracks.length + '</span> tracks · <span class="count">' + data.totalSections + '</span> sections · <span class="count">' + data.totalItems.toLocaleString() + '</span> items</span>' +
+        '<span>Type a filter to search names &amp; filenames</span>';
+    }
+  }
+
+  // ---------- Export ----------
+  function csvEscape(v) {
+    v = v == null ? '' : String(v);
+    if (/[",\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+    return v;
+  }
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg, isError) {
+    toastEl.textContent = msg;
+    toastEl.classList.toggle('error', !!isError);
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 3400);
+  }
+
+  // `brokeredName` is what ships when running inside the Claude artifact
+  // sandbox (constrained to its extension allowlist — no .csv/.pdf, so CSV
+  // content there uses .txt). `localName`/`mime` are used for the plain
+  // browser fallback below, which has no such restriction.
+  function saveFile(brokeredName, localName, data, mime) {
+    if (window.claude && window.claude.downloads) {
+      window.claude.downloads.save({ filename: brokeredName, data: data }).then(
+        function () { showToast('Saved "' + brokeredName + '".', false); },
+        function (err) {
+          var code = err && err.code;
+          var msg =
+            code === 'declined' ? 'Download was declined.' :
+            code === 'rejected_extension' ? 'That file type is not allowed here.' :
+            code === 'too_large' ? 'File is too large to export (16 MB limit).' :
+            code === 'rate_limited' ? 'A save prompt is already open — try again in a moment.' :
+            'Could not save the file (' + (code || 'unknown error') + ').';
+          showToast(msg, true);
+        }
+      );
+      return;
+    }
+    // Running as a plain local/hosted page (no window.claude) — normal
+    // browser download works fine here since there's no artifact sandbox.
+    try {
+      var blob = new Blob([data], { type: (mime || 'text/plain') + ';charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = localName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      showToast('Saved "' + localName + '".', false);
+    } catch (e) {
+      showToast('Could not save the file in this browser.', true);
+    }
+  }
+
+  function buildFilename(ext, labelSuffix) {
+    var term = searchInput.value.trim();
+    var slug = term
+      ? term.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'filtered'
+      : 'full';
+    return 'setlist_' + slug + (labelSuffix ? '_' + labelSuffix : '') + '.' + ext;
+  }
+
+  function exportText() {
+    var data = computeVisible();
+    var lines = [];
+    data.tracks.forEach(function (track) {
+      lines.push('Track\t' + track.name);
+      track.sections.forEach(function (section) {
+        lines.push(['Section', section.name, section.timestamp].join('\t'));
+        section.items.forEach(function (item) {
+          lines.push([item.type, item.name, item.timestamp, item.detail].join('\t'));
+        });
+      });
+    });
+    var name = buildFilename('txt');
+    saveFile(name, name, lines.join('\r\n'), 'text/plain');
+  }
+
+  function exportCSV() {
+    var data = computeVisible();
+    var rows = [['Track', 'Section', 'Section Timecode', 'Type', 'Name', 'Timecode', 'Detail']];
+    data.tracks.forEach(function (track) {
+      track.sections.forEach(function (section) {
+        section.items.forEach(function (item) {
+          rows.push([track.name, section.name, section.timestamp, item.type, item.name, item.timestamp, item.detail]);
+        });
+      });
+    });
+    var csv = rows.map(function (r) { return r.map(csvEscape).join(','); }).join('\r\n');
+    // Claude's download broker has no .csv in its extension allowlist, so that
+    // path ships .txt; the plain-browser fallback has no such limit and gets a real .csv.
+    saveFile(buildFilename('txt', 'csv'), buildFilename('csv'), '﻿' + csv, 'text/csv');
+  }
+
+  function exportUniqueAssets() {
+    var data = computeVisible();
+    var seen = {};
+    var order = [];
+    data.tracks.forEach(function (track) {
+      track.sections.forEach(function (section) {
+        section.items.forEach(function (item) {
+          var key = (item.detail || '').trim();
+          if (!key || key.toLowerCase() === 'none') return;
+          if (!seen[key]) {
+            seen[key] = {
+              type: item.type, name: item.name, detail: item.detail, count: 0,
+              firstTrack: track.name, firstSection: section.name, firstTimecode: item.timestamp
+            };
+            order.push(key);
+          }
+          seen[key].count++;
+        });
+      });
+    });
+    var rows = [['Type', 'Name', 'Detail', 'Use Count', 'First Track', 'First Section', 'First Timecode']];
+    order.forEach(function (key) {
+      var r = seen[key];
+      rows.push([r.type, r.name, r.detail, r.count, r.firstTrack, r.firstSection, r.firstTimecode]);
+    });
+    var csv = rows.map(function (r) { return r.map(csvEscape).join(','); }).join('\r\n');
+    saveFile(buildFilename('txt', 'unique-assets'), buildFilename('csv', 'unique-assets'), '﻿' + csv, 'text/csv');
+  }
+
+  function exportPDF() {
+    window.print();
+  }
+
+  window.addEventListener('beforeprint', function () {
+    var data = computeVisible();
+    var typesOn = Object.keys(activeTypes).filter(function (k) { return activeTypes[k]; });
+    var filterDesc = data.hasFilter ? ('Filter: "' + searchInput.value.trim() + '"') : 'Filter: none — showing all loaded items';
+    document.getElementById('print-header').innerHTML =
+      '<h1>Set List Export</h1>' +
+      '<p>' + escapeHtml(filterDesc) + ' &nbsp;·&nbsp; Types shown: ' + escapeHtml(typesOn.join(', ') || 'none') + '</p>' +
+      '<p>' + data.tracks.length + ' track' + (data.tracks.length === 1 ? '' : 's') +
+        (data.hasFilter ? ', ' + data.totalMatches + ' matching item' + (data.totalMatches === 1 ? '' : 's') : '') +
+        ' &nbsp;·&nbsp; generated ' + new Date().toLocaleString() + '</p>';
+  });
+
+  function loadData(raw) {
+    tracks = parseSetList(raw);
+    emptyState.style.display = 'none';
+    controlsRow.style.display = 'flex';
+    statsRow.style.display = 'flex';
+    resetBtn.style.display = 'inline-flex';
+    exportMenu.style.display = 'inline-flex';
+    render();
+  }
+
+  fileInput.addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) { loadData(ev.target.result); };
+    reader.readAsText(file);
+  });
+
+  pasteBtn.addEventListener('click', function () {
+    pasteArea.style.display = pasteArea.style.display === 'none' ? 'block' : 'none';
+    if (pasteArea.style.display === 'block') pasteArea.focus();
+  });
+
+  pasteArea.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || pasteArea.value.trim())) {
+      if (pasteArea.value.trim()) loadData(pasteArea.value);
+    }
+  });
+  pasteArea.addEventListener('blur', function () {
+    if (pasteArea.value.trim()) loadData(pasteArea.value);
+  });
+
+  resetBtn.addEventListener('click', function () {
+    tracks = [];
+    fileInput.value = '';
+    pasteArea.value = '';
+    pasteArea.style.display = 'none';
+    emptyState.style.display = 'block';
+    controlsRow.style.display = 'none';
+    statsRow.style.display = 'none';
+    resetBtn.style.display = 'none';
+    exportMenu.style.display = 'none';
+    exportDropdown.classList.remove('open');
+    trackList.innerHTML = '';
+    noResults.style.display = 'none';
+    searchInput.value = '';
+  });
+
+  exportToggleBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    exportDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', function () {
+    exportDropdown.classList.remove('open');
+  });
+  exportDropdown.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var btn = e.target.closest('button[data-export]');
+    if (!btn) return;
+    exportDropdown.classList.remove('open');
+    var kind = btn.getAttribute('data-export');
+    if (kind === 'txt') exportText();
+    else if (kind === 'csv') exportCSV();
+    else if (kind === 'unique') exportUniqueAssets();
+    else if (kind === 'pdf') exportPDF();
+  });
+
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    emptyState.addEventListener(evt, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      emptyState.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    emptyState.addEventListener(evt, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      emptyState.classList.remove('dragover');
+    });
+  });
+  emptyState.addEventListener('drop', function (e) {
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) { loadData(ev.target.result); };
+    reader.readAsText(file);
+  });
+
+  var debounceHandle = null;
+  searchInput.addEventListener('input', function () {
+    clearTimeout(debounceHandle);
+    debounceHandle = setTimeout(render, 90);
+  });
+  clearSearchBtn.addEventListener('click', function () {
+    searchInput.value = '';
+    render();
+    searchInput.focus();
+  });
+
+  typeToggles.addEventListener('click', function (e) {
+    var btn = e.target.closest('.chip-toggle');
+    if (!btn) return;
+    var type = btn.getAttribute('data-type');
+    activeTypes[type] = !activeTypes[type];
+    btn.setAttribute('data-on', activeTypes[type] ? 'true' : 'false');
+    render();
+  });
+})();
+</script>
+</body>
+</html>
