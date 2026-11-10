@@ -52,7 +52,7 @@ def riedl(arch: str):
         for tool in ("ffmpeg", "ffprobe"):
             data = get(f"https://ffmpeg.martin-riedl.de/redirect/latest/macos/{arch}/release/{tool}.zip")
             unzip_one(data, tool, BIN / tool)
-        return f"Martin Riedl FFmpeg Build Server (macos/{arch}) — https://ffmpeg.martin-riedl.de"
+        return f"Martin Riedl FFmpeg Build Server (macos/{arch}) - https://ffmpeg.martin-riedl.de"
     return fetch
 
 
@@ -62,7 +62,7 @@ def evermeet():
         url = (((info.get("download") or {}).get("zip") or {}).get("url")
                or f"https://evermeet.cx/ffmpeg/{tool}-{info['version']}.zip")
         unzip_one(get(url), tool, BIN / tool)
-    return "evermeet.cx static build (macOS x86_64) — https://evermeet.cx/ffmpeg/"
+    return "evermeet.cx static build (macOS x86_64) - https://evermeet.cx/ffmpeg/"
 
 
 def gyan_full_shared():
@@ -80,7 +80,7 @@ def gyan_full_shared():
         lic = next(Path(td).glob("*/LICENSE*"), None)
         if lic:
             shutil.copy2(lic, BIN / "FFMPEG_LICENSE.txt")
-    return "gyan.dev release full (shared) build — https://www.gyan.dev/ffmpeg/builds/"
+    return "gyan.dev release full (shared) build - https://www.gyan.dev/ffmpeg/builds/"
 
 
 def sources():
@@ -112,6 +112,12 @@ def verify() -> str:
 
 
 def main():
+    # Windows consoles default to cp1252; never crash on printing a character.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="re-download even if bin/ is already valid")
     args = ap.parse_args()
@@ -134,11 +140,11 @@ def main():
             version = verify()
         except Exception as e:
             errors.append(f"{getattr(src, '__name__', src)}: {e}")
-            print(f"  ✗ {errors[-1]}")
+            print(f"  [FAIL] {errors[-1]}")
             continue
         (BIN / "FFMPEG_BUILD.txt").write_text(
-            f"Source: {origin}\nFFmpeg source code: https://ffmpeg.org/download.html\n\n{version}")
-        print(f"✓ HAP-capable ffmpeg ready in {BIN}\n  {version.splitlines()[0]}\n  from {origin}")
+            f"Source: {origin}\nFFmpeg source code: https://ffmpeg.org/download.html\n\n{version}", encoding="utf-8")
+        print(f"[OK] HAP-capable ffmpeg ready in {BIN}\n  {version.splitlines()[0]}\n  from {origin}")
         return
     raise SystemExit("No working ffmpeg build found:\n  " + "\n  ".join(errors))
 
