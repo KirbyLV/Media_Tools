@@ -1,0 +1,76 @@
+name: audio-extractor
+
+# Builds downloadable Audio Extractor apps (ffmpeg bundled) for:
+#   macOS Apple Silicon, macOS Intel, Windows x64
+# Push a tag like `audio-extractor-v1.0.0` to publish a GitHub Release,
+# or run manually from the Actions tab to get build artifacts only.
+on:
+  push:
+    tags: ["audio-extractor-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: "Audio Extractor"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/audio-extractor-v')
+        shell: bash
+        run: echo "${GITHUB_REF_NAME#audio-extractor-v}" > VERSION
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: ./build.sh
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./build.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AudioExtractor-${{ matrix.os }}
+          path: Audio Extractor/dist/AudioExtractor-*.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/audio-extractor-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Audio Extractor ${{ github.ref_name }}
+          files: out/*.zip
+          body: |
+            Download the zip for your computer, unzip, and run **Audio Extractor**. ffmpeg is built in.
+
+            - **Mac (M1/M2/M3/M4):** `macOS-arm64`
+            - **Mac (Intel):** `macOS-x86_64`
+            - **Windows:** `Windows-x64`
+
+            **First launch on Mac:** the app isn't notarized, so macOS will block it once.
+            Open System Settings → Privacy & Security → scroll down → **Open Anyway**.
+            Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/Audio Extractor.app"`
+
+            **Windows:** if SmartScreen appears, click **More info → Run anyway**.

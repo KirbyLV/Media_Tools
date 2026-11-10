@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Audio Extractor build outputs
+Audio Extractor/bin/
+Audio Extractor/build/
+Audio Extractor/dist/
+Audio Extractor/*.spec
